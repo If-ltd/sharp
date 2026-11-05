@@ -8,7 +8,7 @@ for (const [name, current] of Object.entries(candidate.cases)) {
   const previous = baseline.cases[name];
   if (!previous) { summary.push({ name, nativeSupportAdded: true, ms: current.medianMs }); continue; }
   assert.deepEqual([current.width, current.height, current.density, current.icc], [previous.width, previous.height, previous.density, previous.icc], name + ' metadata');
-  if (name !== 'jpeg-q96') assert.equal(current.decodedSha256, previous.decodedSha256, name + ' decoded pixels');
+  if (name !== 'jpeg-q96' && name !== 'decode-jpeg') assert.equal(current.decodedSha256, previous.decodedSha256, name + ' decoded pixels');
   else {
     const a = fs.readFileSync(path.join(process.argv[2], name + '.rgba'));
     const b = fs.readFileSync(path.join(process.argv[3], name + '.rgba'));

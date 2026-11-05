@@ -11,8 +11,19 @@ const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.len
   sharp.cache(false);
   sharp.concurrency(4);
   fs.mkdirSync(output, { recursive: true });
-  // Use the same decoded photographic fixture in both processes.
-  const photo = await sharp(path.resolve(__dirname, '../fixtures/2569067123_aca715a2ee_o.jpg')).resize(3072, 2048, { fit: 'fill' }).ensureAlpha().raw().toBuffer();
+  // Share actual input bytes between processes so codec changes are measured independently.
+  const sourceDirectory = path.resolve(process.argv[4] || output);
+  fs.mkdirSync(sourceDirectory, { recursive: true });
+  const sourceFile = path.join(sourceDirectory, 'source.rgba');
+  if (!fs.existsSync(sourceFile)) {
+    const decoded = await sharp(path.resolve(__dirname, '../fixtures/2569067123_aca715a2ee_o.jpg')).resize(3072, 2048, { fit: 'fill' }).ensureAlpha().raw().toBuffer();
+    fs.writeFileSync(sourceFile, decoded);
+    for (const [format, options] of [['jpeg', { quality: 96 }], ['png', { compressionLevel: 6 }], ['webp', { quality: 90 }], ['tiff', { compression: 'lzw' }]]) {
+      const encoded = await sharp(decoded, { raw: { width: 3072, height: 2048, channels: 4 } })[format](options).toBuffer();
+      fs.writeFileSync(path.join(sourceDirectory, 'source.' + format), encoded);
+    }
+  }
+  const photo = fs.readFileSync(sourceFile);
   const image = () => sharp(photo, { raw: { width: 3072, height: 2048, channels: 4 } });
   const overlay = await image().resize(1024, 768).png().toBuffer();
   const cases = {
@@ -25,6 +36,10 @@ const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.len
     'layout-composite': () => image().composite([{ input: overlay, left: 120, top: 160 }]).png({ compressionLevel: 1 }).toBuffer(),
     'resize-lanczos': () => image().resize(1536, 1024, { kernel: 'lanczos2' }).png({ compressionLevel: 1 }).toBuffer()
   };
+  for (const format of ['jpeg', 'png', 'webp', 'tiff']) {
+    const input = fs.readFileSync(path.join(sourceDirectory, 'source.' + format));
+    cases['decode-' + format] = () => sharp(input).ensureAlpha().raw().toBuffer();
+  }
   if (sharp.format.pdf.input.buffer) cases['pdf-300dpi'] = () => sharp(pdf, { density: 300 }).png().toBuffer();
   const result = { platform: process.platform, arch: process.arch, cpu: os.cpus()[0].model, concurrency: sharp.concurrency(), simd: sharp.simd(), versions: sharp.versions, cases: {} };
   for (const [name, operation] of Object.entries(cases)) {
@@ -36,9 +51,10 @@ const median = values => [...values].sort((a, b) => a - b)[Math.floor(values.len
       buffer = await operation();
       elapsed.push(performance.now() - started);
     }
-    const decoded = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const read = () => name.startsWith('decode-') ? sharp(buffer, { raw: { width: 3072, height: 2048, channels: 4 } }) : sharp(buffer);
+    const decoded = await read().ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     fs.writeFileSync(path.join(output, name + '.rgba'), decoded.data);
-    const metadata = await sharp(buffer).metadata();
+    const metadata = await read().metadata();
     result.cases[name] = { medianMs: median(elapsed), samplesMs: elapsed, bytes: buffer.length, width: metadata.width, height: metadata.height, density: metadata.density, icc: metadata.icc && crypto.createHash('sha256').update(metadata.icc).digest('hex'), decodedSha256: crypto.createHash('sha256').update(decoded.data).digest('hex') };
   }
   fs.writeFileSync(path.join(output, 'benchmark.json'), JSON.stringify(result, null, 2));

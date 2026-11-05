@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           node test/moda/benchmark.cjs moda-baseline/node_modules/sharp moda-results/baseline
-          node test/moda/benchmark.cjs . moda-results/candidate
+          node test/moda/benchmark.cjs . moda-results/candidate moda-results/baseline
           node test/moda/compare.cjs moda-results/baseline moda-results/candidate > moda-results/summary.json
           cat moda-results/summary.json
       - name: Package native module and JavaScript API
