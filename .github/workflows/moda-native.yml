@@ -10,7 +10,7 @@ jobs:
       matrix:
         include:
           - platform: win32-x64
-            os: windows-2022
+            os: [self-hosted, Windows, X64, moda-win-x64]
           - platform: darwin-arm64
             os: macos-15
           - platform: darwin-x64
@@ -20,6 +20,12 @@ jobs:
     env:
       SHARP_IGNORE_GLOBAL_LIBVIPS: '1'
     steps:
+      - name: Configure Windows build shells
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          'C:\Program Files\Git\bin' | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          'C:\Program Files\PowerShell\7' | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
