@@ -26,7 +26,7 @@ cpSync(releaseDir, libDir, {
     const name = basename(file);
     return name === 'Release' ||
       (name.startsWith('sharp-') && name.includes('.node')) ||
-      (name.startsWith('libvips-') && name.endsWith('.dll'));
+      (name.startsWith('libvips-') && name.endsWith('.dll')) || name === 'pdfium.dll';
   }
 });
 
@@ -45,6 +45,7 @@ copyFileSync(join(__dirname, '..', 'LICENSE'), join(destDir, 'LICENSE'));
 if (platform.startsWith('win') || platform.startsWith('wasm')) {
   const libvipsPlatform = platform === 'wasm32' ? 'dev-wasm32' : platform;
   const sharpLibvipsDir = join(require(`@img/sharp-libvips-${libvipsPlatform}/lib`), '..');
+  cpSync(join(sharpLibvipsDir, 'licenses'), join(destDir, 'licenses'), { recursive: true });
   // Copy versions.json
   copyFileSync(join(sharpLibvipsDir, 'versions.json'), join(destDir, 'versions.json'));
   // Append third party licensing to README

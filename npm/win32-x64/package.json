@@ -17,7 +17,8 @@
   "files": [
     "index.cjs",
     "lib",
-    "versions.json"
+    "versions.json",
+    "licenses"
   ],
   "publishConfig": {
     "access": "public"

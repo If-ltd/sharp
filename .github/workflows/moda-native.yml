@@ -1,0 +1,84 @@
+name: Moda native PDF and performance
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: win32-x64
+            os: windows-2022
+          - platform: darwin-arm64
+            os: macos-15
+          - platform: darwin-x64
+            os: macos-15-intel
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      SHARP_IGNORE_GLOBAL_LIBVIPS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime and SDK
+        shell: bash
+        run: |
+          npm install --ignore-scripts
+          npm install --no-save --ignore-scripts --force \
+            '@img/sharp-libvips-${{ matrix.platform }}@https://github.com/If-ltd/sharp-libvips/releases/download/v1.3.4-moda.1/img-sharp-libvips-${{ matrix.platform }}-1.3.4.tgz'
+      - run: npm run build:dist
+      - run: npm run build
+      - name: Verify project formats and native PDF rasterisation
+        run: node test/moda/runtime.cjs moda-check
+      - name: Install baseline in an isolated process tree
+        shell: bash
+        run: npm install --prefix moda-baseline --ignore-scripts sharp@0.35.5
+      - name: Compare project workloads
+        shell: bash
+        run: |
+          node test/moda/benchmark.cjs moda-baseline/node_modules/sharp moda-results/baseline
+          node test/moda/benchmark.cjs . moda-results/candidate
+          node test/moda/compare.cjs moda-results/baseline moda-results/candidate > moda-results/summary.json
+          cat moda-results/summary.json
+      - name: Package native module and JavaScript API
+        shell: bash
+        run: |
+          npm run package-from-local-build
+          mkdir -p moda-packages
+          npm pack ./npm/${{ matrix.platform }} --pack-destination moda-packages
+          if [[ '${{ matrix.platform }}' == win32-x64 ]]; then
+            npm pack --pack-destination moda-packages
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sharp-${{ matrix.platform }}
+          path: |
+            moda-packages/*.tgz
+            moda-results/summary.json
+            moda-results/*/benchmark.json
+          if-no-files-found: error
+  package:
+    needs: native
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: sharp-*
+          path: moda-artifacts
+      - name: Publish fork artifacts and benchmark evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          find moda-artifacts -name '*.tgz' -exec cp '{}' . \;
+          tar czf moda-benchmarks.tar.gz moda-artifacts
+          gh release create v0.35.5-moda.1 --target "$GITHUB_SHA" --title 'Moda Sharp PDF performance runtime' --notes-file MODA.md ./*.tgz moda-benchmarks.tar.gz

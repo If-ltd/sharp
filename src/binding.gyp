@@ -294,7 +294,8 @@
         'copies': [{
           'destination': 'build/Release',
           'files': [
-            '<(sharp_libvips_lib_dir)/libvips-42.dll'
+            '<(sharp_libvips_lib_dir)/libvips-42.dll',
+            '<(sharp_libvips_lib_dir)/pdfium.dll'
           ]
         }]
       }]
