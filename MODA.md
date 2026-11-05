@@ -1,6 +1,6 @@
 # Moda Sharp native PDF and performance runtime
 
-Fork of Sharp v0.35.5, paired with If-ltd/sharp-libvips v1.3.4-moda.1. Native package and ABI versions remain unchanged; consumers pin immutable Release tarballs with explicit resolutions.
+Fork of Sharp v0.35.5, paired with If-ltd/sharp-libvips v1.3.4-moda.1. The consumer package keeps only Windows x64 and macOS arm64/x64 optional runtime dependencies; Linux, 32-bit Windows, Windows ARM64 and Wasm bindings are omitted. Native package and ABI versions remain unchanged; consumers pin immutable Release tarballs with explicit resolutions.
 
 Windows packages include the PDFium DLL and all PDFium third-party notices alongside the shared libvips runtime. macOS requires version 13 or newer. Worker, Sharp and the TIFF encoder share this runtime.
 
